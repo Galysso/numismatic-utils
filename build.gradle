@@ -24,7 +24,14 @@ repositories {
 }
 
 loom {
+	splitEnvironmentSourceSets()
 
+	mods {
+		"numismatic_utils" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
 
 }
 

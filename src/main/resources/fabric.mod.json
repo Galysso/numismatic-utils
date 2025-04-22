@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"id": "codicraft_numismatic_utils",
+	"id": "numismatic_utils",
 	"version": "${version}",
 	"name": "Numismatic Utils",
 	"description": "Mod to help with the rendering of numismatic balance.",
@@ -12,13 +12,19 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
+	"icon": "assets/numismatic_utils/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
 			"galysso.codicraft.numismaticutils.NumismaticUtilsMain"
+		],
+		"client": [
+			"galysso.codicraft.numismaticutils.NumismaticUtilsClient"
 		]
 	},
+	"mixins": [
+		"numismaticutils.mixins.json"
+	],
 	"depends": {
 		"fabricloader": ">=0.16.10",
 		"minecraft": "~1.21.1",

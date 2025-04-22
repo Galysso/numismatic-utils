@@ -1,0 +1,8 @@
+{
+  "numismatic_utils.tooltip.current_balance": "Current balance",
+  "numismatic_utils.tooltip.current_pouch_balance": "Current balance in your pouch",
+  "numismatic_utils.tooltip.current_main_account_balance": "Current balance in your main account",
+  "numismatic_utils.tooltip.current_shared_account_balance": "Current balance in shared account",
+  "numismatic_utils.banker.main_account": "Personal",
+  "numismatic_utils.banker.pouch": "Pouch"
+}
