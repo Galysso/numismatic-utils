@@ -77,9 +77,6 @@ public class NumismaticDraw {
     }
 
     public static void renderBalanceVertical(DrawContext context, TextRenderer textRenderer, int x, int y, long balance, int digitsColor, boolean withShadow, int padding, boolean allowEmptySpaces) {
-        if (balance == 0)
-            return;
-
         // Initialize offset
         int verticalOffset = 0;
 
