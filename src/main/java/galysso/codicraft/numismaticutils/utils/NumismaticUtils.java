@@ -1,4 +1,4 @@
-package galysso.codicraft.numismaticutils.Utils;
+package galysso.codicraft.numismaticutils.utils;
 
 public class NumismaticUtils {
     public static CoinsTuple convertCostToCoins(int cost) {

@@ -23,10 +23,10 @@ public class DynamicButton extends ButtonWidget {
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
         int v = posV;
         if (!this.active)
-            v = 2*height;
+            v = posV + 2*height;
         else if (this.isHovered())
-            v = height;
+            v = posV + height;
 
-        context.drawTexture(BankerScreen.ICONS_TEXTURE, this.getX(), this.getY(), posU, v, this.width, this.height);
+        context.drawTexture(BankerScreen.BUTTONS_TEXTURE, this.getX(), this.getY(), posU, v, this.width, this.height);
     }
 }

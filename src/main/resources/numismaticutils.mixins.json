@@ -3,6 +3,7 @@
   "package": "galysso.codicraft.numismaticutils.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "MinecraftServerMixin",
     "VillagerEntityMixin"
   ],
   "injectors": {

@@ -43,10 +43,8 @@ public abstract class VillagerEntityMixin extends MerchantEntity {
     /** Shows repair screen if villager is a repairsmith */
     @Inject(at = @At("HEAD"), method = "beginTradeWith", cancellable = true)
     private void beginTradeWith(PlayerEntity customer, CallbackInfo info) {
-        System.out.println("VillagerEntityMixin: beginTradeWith called");
         // Check if profession is repairsmith
         if (this.getVillagerData().getProfession() == VillagerProfession.LIBRARIAN) {
-            System.out.println("VillagerEntityMixin: Villager is a banker");
             this.prepareOffersFor(customer);
             this.setCustomer(customer);
 

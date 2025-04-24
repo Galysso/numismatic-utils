@@ -20,6 +20,9 @@
 		],
 		"client": [
 			"galysso.codicraft.numismaticutils.NumismaticUtilsClient"
+		],
+		"dedicated_server": [
+			"galysso.codicraft.numismaticutils.NumismaticUtilsServer"
 		]
 	},
 	"mixins": [

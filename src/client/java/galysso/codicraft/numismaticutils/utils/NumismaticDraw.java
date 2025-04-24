@@ -1,7 +1,6 @@
 package galysso.codicraft.numismaticutils.utils;
 
 import com.glisco.numismaticoverhaul.item.NumismaticOverhaulItems;
-import galysso.codicraft.numismaticutils.Utils.NumismaticUtils;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.item.ItemStack;
