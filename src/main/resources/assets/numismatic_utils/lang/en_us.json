@@ -7,5 +7,9 @@
   "numismatic_utils.banker.pouch": "Pouch",
   "numismatic_utils.banker.home": "Home",
   "numismatic_utils.banker.accounts": "Accounts",
-  "numismatic_utils.banker.players": "Players"
+  "numismatic_utils.banker.players": "Players",
+  "numismaticutils.banker.unknown_player": "Unknown",
+  "numismatic_utils.banker.account_name_text_field": "Account name:",
+  "numismatic_utils.banker.account_creation": "Open account",
+  "numismatic_utils.banker.create_account_placeholder": "A pretty name..."
 }

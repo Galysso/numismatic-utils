@@ -1,5 +1,6 @@
 package galysso.codicraft.numismaticutils.utils;
 
+import com.glisco.numismaticoverhaul.item.CoinItem;
 import com.glisco.numismaticoverhaul.item.NumismaticOverhaulItems;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -130,7 +131,7 @@ public class NumismaticDraw {
         }
 
         // Draw first coins
-        renderCoinsWithTextAside(context, textRenderer, x + horizontalOffset, y, coinsStack, digitsColor, withShadow);
+        renderCoinWithTextAside(context, textRenderer, x + horizontalOffset, y, coinsStack, digitsColor, withShadow);
 
         // Shift accordingly
         if (allowEmptySpaces || coinsStack.getCount() > 0) {
@@ -145,7 +146,7 @@ public class NumismaticDraw {
         coinsStack = new ItemStack(NumismaticOverhaulItems.SILVER_COIN, (int) coins.silverCoins);
 
         // Draw second coins
-        renderCoinsWithTextAside(context, textRenderer, x + horizontalOffset, y, coinsStack, digitsColor, withShadow);
+        renderCoinWithTextAside(context, textRenderer, x + horizontalOffset, y, coinsStack, digitsColor, withShadow);
 
         // Shift accordingly
         if (allowEmptySpaces || coinsStack.getCount() > 0) {
@@ -164,7 +165,7 @@ public class NumismaticDraw {
         }
 
         // Draw third coins
-        renderCoinsWithTextAside(context, textRenderer, x + horizontalOffset, y, coinsStack, digitsColor, withShadow);
+        renderCoinWithTextAside(context, textRenderer, x + horizontalOffset, y, coinsStack, digitsColor, withShadow);
     }
 
     private static void renderCoins(DrawContext context, TextRenderer textRenderer, int x, int y, ItemStack coinsStack, int digitsColor, boolean withShadow) {
@@ -179,9 +180,16 @@ public class NumismaticDraw {
         }
     }
 
-    private static void renderCoinsWithTextAside(DrawContext context, TextRenderer textRenderer, int x, int y, ItemStack coinsStack, int digitsColor, boolean withShadow) {
+    private static void renderCoinWithTextAside(DrawContext context, TextRenderer textRenderer, int x, int y, ItemStack coinsStack, int digitsColor, boolean withShadow) {
         int coins = max(1, coinsStack.getCount());
         context.drawItem(coinsStack, x, y);
         context.drawText(textRenderer, Text.literal(Integer.toString(coins)), x + coinWidth, y + 5, digitsColor, withShadow);
+    }
+
+    // Special for bankerScreen
+    public static void renderMinimalistCoinWithTextAside(DrawContext context, TextRenderer textRenderer, int x, int y, CoinItem coin, long value, int digitsColor, boolean withShadow) {
+        context.drawItem(new ItemStack(coin, 1), x, y);
+        int horizontalOffset = coin.equals(NumismaticOverhaulItems.GOLD_COIN) ? 1 : 0;
+        context.drawText(textRenderer, Text.literal(Long.toString(value)), x + coinWidth - 3 + horizontalOffset, y + 5, digitsColor, withShadow);
     }
 }

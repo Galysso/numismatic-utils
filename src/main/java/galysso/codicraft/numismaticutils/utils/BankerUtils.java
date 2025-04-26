@@ -3,7 +3,9 @@ package galysso.codicraft.numismaticutils.utils;
 import galysso.codicraft.numismaticutils.banking.NumismaticAccount;
 import galysso.codicraft.numismaticutils.banking.PlayerNavigationInfo;
 import galysso.codicraft.numismaticutils.nbt.BankerUtilsNbtConverter;
+import galysso.codicraft.numismaticutils.network.ClientState;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.*;
 
@@ -16,9 +18,13 @@ public class BankerUtils {
     private static Map<UUID, ArrayList<NumismaticAccount>> sharedAccountsByOwner;
     /* UUID of the player that has rights on the account (including owner) => Account */
     private static Map<UUID, ArrayList<NumismaticAccount>> sharedAccountsByParticipant; // the order can be changed via arrows in the GUI
-
     /* Player UUID => player's navigation information */
     private static Map<UUID, PlayerNavigationInfo> playersNavigationInfo;
+    /* Player UUID => name */
+    private static Map<UUID, String> playersNames;
+
+    /* Player UUID => Client state */
+    private static Map<UUID, ClientState> clientsStates; // TODO: Think about it, probably not everything should be updated live
 
 
     public static void loadData() {
@@ -26,6 +32,7 @@ public class BankerUtils {
         mainAccountsByOwner = BankerUtilsNbtConverter.loadMainAccountsByOwner();
         sharedAccountsByOwner = BankerUtilsNbtConverter.loadSharedAccountsByOwner();
         sharedAccountsByParticipant = BankerUtilsNbtConverter.loadSharedAccountsByParticipant();
+        playersNames = BankerUtilsNbtConverter.loadPlayersNames();
         playersNavigationInfo = new HashMap<>();
     }
 
@@ -34,6 +41,7 @@ public class BankerUtils {
         BankerUtilsNbtConverter.saveMainAccountsByOwner(mainAccountsByOwner);
         BankerUtilsNbtConverter.saveSharedAccountsByOwner(sharedAccountsByOwner);
         BankerUtilsNbtConverter.saveSharedAccountsByParticipant(sharedAccountsByParticipant);
+        BankerUtilsNbtConverter.savePlayersNames(playersNames);
     }
 
     public static NumismaticAccount openMainAccount(PlayerEntity owner) {
@@ -50,7 +58,7 @@ public class BankerUtils {
         }
     }
 
-    public static Boolean openSharedAccount(PlayerEntity owner, String accountName) {
+    public static NumismaticAccount openSharedAccount(PlayerEntity owner, String accountName) {
         // Check if the player has an account
         if (canOpenSharedAccount(owner)) {
             // Create the account
@@ -67,9 +75,14 @@ public class BankerUtils {
             numismaticAccounts = getSharedAccountsForParticipant(owner);
             numismaticAccounts.addFirst(numismaticAccount);
 
-            return true;
+            return numismaticAccount;
         }
-        return false;
+        return null;
+    }
+
+    public static void registerPlayer(ServerPlayerEntity player) {
+        System.out.println("Registering player " + player.getUuid() + " => " + player.getName().getString());
+        playersNames.put(player.getUuid(), player.getName().getString());
     }
 
     public static boolean canOpenSharedAccount(PlayerEntity player) {
@@ -114,6 +127,14 @@ public class BankerUtils {
             BankerUtils.playersNavigationInfo.put(playerId, playerNavigationInfo);
         }
         return playerNavigationInfo;
+    }
+
+    public static String getPlayerName(UUID playerId) {
+        return playersNames.get(playerId);
+    }
+
+    public static Map<UUID, String> getPlayersNames() {
+        return playersNames;
     }
 
     public static List<NumismaticAccount> getSharedAccounts(PlayerEntity participant) {
@@ -177,6 +198,7 @@ public class BankerUtils {
 
     public enum RIGHT_TYPE {
         OWNER,
+        CO_OWNER,
         BENEFICIARY,
         CONTRIBUTOR,
         READ_ONLY

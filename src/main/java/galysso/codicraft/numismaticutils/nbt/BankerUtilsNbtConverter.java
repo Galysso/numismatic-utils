@@ -26,6 +26,7 @@ public class BankerUtilsNbtConverter {
     private final static String MAIN_ACCOUNTS_ID_MAP_NBT_KEY = NumismaticUtilsMain.MOD_ID + "_banker_main_accounts_id_map.nbt";
     private final static String SHARED_ACCOUNTS_ID_LIST_MAP_BY_OWNER_NBT_KEY = NumismaticUtilsMain.MOD_ID + "_banker_shared_accounts_id_list_map.nbt";
     private final static String SHARED_ACCOUNTS_ID_LIST_MAP_BY_PARTICIPANTS_NBT_KEY = NumismaticUtilsMain.MOD_ID + "_banker_shared_accounts_id_list_map_by_participants.nbt";
+    private final static String PLAYERS_NAMES_NBT_KEY = NumismaticUtilsMain.MOD_ID + "_banker_players_names.nbt";
 
     private static NbtCompound loadNbtFromFile(Path path) {
         if (Files.exists(path)) {
@@ -112,6 +113,39 @@ public class BankerUtilsNbtConverter {
         return deSerializeAccountIdListMap(accountsListMapNbt);
     }
 
+    public static void savePlayersNames(Map<UUID, String> playersNames) {
+        Path dataPath = ServerUtil.getServer().getSavePath(WorldSavePath.ROOT).resolve(PLAYERS_NAMES_NBT_KEY);
+        NbtList playersNamesListNbt = new NbtList();
+        for (Map.Entry<UUID, String> entry : playersNames.entrySet()) {
+            NbtCompound playerNameNbt = new NbtCompound();
+            playerNameNbt.putUuid("uuid", entry.getKey());
+            playerNameNbt.putString("value", entry.getValue());
+            playersNamesListNbt.add(playerNameNbt);
+        }
+        NbtCompound playersNamesNbt = new NbtCompound();
+        playersNamesNbt.put("value", playersNamesListNbt);
+        saveNbtToFile(playersNamesNbt, dataPath);
+    }
+
+    public static Map<UUID, String> loadPlayersNames() {
+        Path dataPath = ServerUtil.getServer().getSavePath(WorldSavePath.ROOT).resolve(PLAYERS_NAMES_NBT_KEY);
+        NbtCompound playersNamesNbt = loadNbtFromFile(dataPath);
+        Map<UUID, String> playersNames = new HashMap<>();
+        if (playersNamesNbt == null) {
+            return playersNames;
+        }
+        if (playersNamesNbt.contains("value", NbtElement.LIST_TYPE)) {
+            NbtList playersNamesListNbt = playersNamesNbt.getList("value", NbtElement.COMPOUND_TYPE);
+            for (int i = 0; i < playersNamesListNbt.size(); i++) {
+                NbtCompound entryNbt = playersNamesListNbt.getCompound(i);
+                UUID key = entryNbt.getUuid("uuid");
+                String value = entryNbt.getString("value");
+                playersNames.put(key, value);
+            }
+        }
+        return playersNames;
+    }
+
     private static NbtCompound serializeAccountsMap(Map<UUID, NumismaticAccount> accountsById) {
         System.out.println("[Numismatic Utils]: Serializing accounts map...");
         NbtList accountsListNbt = new NbtList();
@@ -178,7 +212,6 @@ public class BankerUtilsNbtConverter {
     }
 
     private static NbtCompound serializeAccountIdListMap(Map<UUID, ArrayList<NumismaticAccount>> accountsListById) {
-        System.out.println("[Numismatic Utils]: Serializing accounts id map...");
         NbtList accountsListIdNbt = new NbtList();
         for (Map.Entry<UUID, ArrayList<NumismaticAccount>> entry : accountsListById.entrySet()) {
             NbtCompound mapKeyValue = new NbtCompound();
@@ -192,7 +225,6 @@ public class BankerUtilsNbtConverter {
     }
 
     private static Map<UUID, ArrayList<NumismaticAccount>> deSerializeAccountIdListMap(NbtCompound accountsNbt) {
-        System.out.println("[Numismatic Utils]: Deserializing accounts id map...");
         Map<UUID, ArrayList<NumismaticAccount>> accountsListsById = new HashMap<>();
         if (accountsNbt.contains("accountsLists", NbtElement.LIST_TYPE)) {
             NbtList accountsListNbt = accountsNbt.getList("accountsLists", NbtElement.COMPOUND_TYPE);

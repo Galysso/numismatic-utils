@@ -1,8 +1,10 @@
 package galysso.codicraft.numismaticutils.banking;
 
+import galysso.codicraft.numismaticutils.banking.events.Event;
 import galysso.codicraft.numismaticutils.utils.BankerUtils;
 import net.minecraft.entity.player.PlayerEntity;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -16,46 +18,35 @@ public class NumismaticAccount {
     private Map<UUID, Boolean> pendingRequests;
     private long balance;
     private boolean deleted;
+    private Map<UUID, Long> playersRelativeBalance;
+    private ArrayList<Event> eventsList;
 
     public NumismaticAccount(UUID ownerId) {
-        this.id = UUID.randomUUID();
-        this.name = "";
-        this.ownerId = ownerId;
-        this.iconsId = new HashMap<UUID, Integer>();
-        this.participants = new HashMap<UUID, BankerUtils.RIGHT_TYPE>() {{
-            put(ownerId, BankerUtils.RIGHT_TYPE.OWNER);
-        }};
-        this.pendingRequests = new HashMap<UUID, Boolean>();
-        this.balance = 0;
-        this.deleted = false;
+        this(ownerId, "");
     }
 
     public NumismaticAccount(UUID ownerId, String name) {
-        this.id = UUID.randomUUID();
-        this.name = name;
-        this.ownerId = ownerId;
-        this.iconsId = new HashMap<UUID, Integer>();
-        this.participants = new HashMap<UUID, BankerUtils.RIGHT_TYPE>() {{
-            put(ownerId, BankerUtils.RIGHT_TYPE.OWNER);
-        }};
-        this.pendingRequests = new HashMap<UUID, Boolean>();
-        this.balance = 0;
-        this.deleted = false;
+        this(UUID.randomUUID(), name, ownerId, new HashMap<>(), new HashMap<>(), 0, new HashMap<>());
+        this.participants.put(ownerId, BankerUtils.RIGHT_TYPE.OWNER);
+        this.playersRelativeBalance.put(ownerId, 0L);
     }
 
-    public NumismaticAccount(UUID accountId, String name, UUID ownerId, Map<UUID, BankerUtils.RIGHT_TYPE> participants, Map<UUID, Boolean> pendingRequests, long balance) {
+    public NumismaticAccount(UUID accountId, String name, UUID ownerId, Map<UUID, BankerUtils.RIGHT_TYPE> participants, Map<UUID, Boolean> pendingRequests, long balance, Map<UUID, Long> playersRelativeBalance) {
         this.id = accountId;
         this.name = name;
         this.ownerId = ownerId;
-        this.iconsId = new HashMap<UUID, Integer>();
+        this.iconsId = new HashMap<>();
         this.participants = participants;
         this.pendingRequests = pendingRequests;
         this.balance = balance;
         this.deleted = false;
+        this.playersRelativeBalance = playersRelativeBalance;
     }
 
-    public void modify(long amount) {
+    public void modify(UUID authorId, long amount) {
         balance += amount;
+        long newRelativeBalance = playersRelativeBalance.getOrDefault(authorId, 0L) + amount;
+        playersRelativeBalance.put(authorId, newRelativeBalance);
     }
 
     public boolean canSee(PlayerEntity player) {
@@ -103,6 +94,14 @@ public class NumismaticAccount {
     }
 
     public BankerUtils.RIGHT_TYPE getPlayerRights(PlayerEntity player) {
-        return participants.get(player.getUuid());
+        return getPlayerRights(player.getUuid());
+    }
+
+    public BankerUtils.RIGHT_TYPE getPlayerRights(UUID playerId) {
+        return participants.get(playerId);
+    }
+
+    public Map<UUID, Long> getPlayersRelativeBalance() {
+        return playersRelativeBalance;
     }
 }

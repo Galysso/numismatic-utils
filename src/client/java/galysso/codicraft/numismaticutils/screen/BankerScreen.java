@@ -1,12 +1,16 @@
 package galysso.codicraft.numismaticutils.screen;
 
 import com.glisco.numismaticoverhaul.ModComponents;
+import com.glisco.numismaticoverhaul.item.NumismaticOverhaulItems;
 import com.mojang.blaze3d.systems.RenderSystem;
 import galysso.codicraft.numismaticutils.NumismaticUtilsMain;
 import galysso.codicraft.numismaticutils.network.requests.*;
-import galysso.codicraft.numismaticutils.screen.buttons.DynamicButton;
+import galysso.codicraft.numismaticutils.screen.widgets.DynamicButton;
 import galysso.codicraft.numismaticutils.screen.helper.DrawTools;
+import galysso.codicraft.numismaticutils.screen.widgets.PrettyTextField;
+import galysso.codicraft.numismaticutils.screen.widgets.StateSwitchingButton;
 import galysso.codicraft.numismaticutils.utils.NumismaticDraw;
+import galysso.codicraft.numismaticutils.utils.NumismaticUtils;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
@@ -15,6 +19,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import galysso.codicraft.numismaticutils.utils.BankerUtils;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 
@@ -23,6 +28,11 @@ import static java.lang.Math.min;
 
 public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     @Override protected void drawForeground(DrawContext context, int mouseX, int mouseY) {}
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_E) {return true;} // Prevent from leaving the inventory when the inventory key is pressed
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
 
     // Status
     private enum LeftState {
@@ -38,7 +48,8 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
     private HashMap<LeftState, RightState> stateCoupleMap;
     private LeftState currentLeftState = LeftState.HOME;
-    private UUID selectedAccountId = null;
+    //private UUID selectedAccountId = null;
+    private UUID selectedPlayerId = null;
     private Optional<BankerUtils.RIGHT_TYPE> filterRightType = Optional.empty();
     private Optional<Integer> filterIconId = Optional.empty();
 
@@ -54,6 +65,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     private static final Identifier GUI_TEXTURE = NumismaticUtilsMain.identifier("textures/gui/banker.png");
     public static final Identifier BUTTONS_TEXTURE =  NumismaticUtilsMain.identifier("textures/gui/buttons.png");
     public static final Identifier ICONS_TEXTURE =  NumismaticUtilsMain.identifier("textures/gui/icons.png");
+    public static final Identifier POPUP_TEXTURE =  NumismaticUtilsMain.identifier("textures/gui/popup_texture.png");
 
     private static final int NB_LEFT_BUTTONS = 10;
 
@@ -86,9 +98,14 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     private DynamicButton displaySettingsButton;
     private DynamicButton addAccountButton;
     private DynamicButton confirmAccountCreationButton;
-    private DynamicButton filterRightTypeButton;
+    private StateSwitchingButton filterRightTypeButton;
     private DynamicButton filterIconIdButton;
     private DynamicButton closeFocusButton;
+    private DynamicButton sortTypeAccountInfoButton;
+    private DynamicButton filterRightTypeAccountInfoButton;
+    private DynamicButton changeAccountNameButton;
+    private DynamicButton invitePlayerButton;
+    private DynamicButton deleteAccountButton;
 
     /* transfert buttons groups */
     private ArrayList<DynamicButton> fromMainToPouchButtons;
@@ -102,6 +119,9 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     private ArrayList<DynamicButton> smallTransfertButtons;
     private ArrayList<DynamicButton> fullTransfertButtons;
     private ArrayList<DynamicButton> bronzeAndSilverTransfertButtons;
+
+    /* text fields */
+    private PrettyTextField accountCreationNameTextField;
 
     /* left buttons group */
     private ArrayList<DynamicButton> leftButtons;
@@ -148,117 +168,119 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private void initButtons() {
+        AccountData mainAccount = handler.getMainAccount();
+        AccountData focusedAccount = handler.getFocusedAccount();
         buttons = new ArrayList<>();
         buttons.add(addDrawableChild(goldFromMainToPouchButton = new DynamicButton(
                 this.x + 70, this.y + 17, 8, 10, 0, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, -10000L);
+                    requestTransfertFromPouchToMain(-10000L);
                 }
         )));
         buttons.add(addDrawableChild(silverFromMainToPouchButton = new DynamicButton(
                 this.x + 70, this.y + 28, 8, 10, 0, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, -100L);
+                    requestTransfertFromPouchToMain(-100L);
                 }
         )));
         buttons.add(addDrawableChild(bronzeFromMainToPouchButton = new DynamicButton(
                 this.x + 70, this.y + 39, 8, 10, 0, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, -1L);
+                    requestTransfertFromPouchToMain(-1L);
                 }
         )));
         buttons.add(addDrawableChild(fullFromMainToPouchButton = new DynamicButton(
                 this.x + 70, this.y + 17, 8, 32, 16, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, -Long.MAX_VALUE);
+                    requestTransfertFromPouchToMain(-Long.MAX_VALUE);
                 }
         )));
         buttons.add(addDrawableChild(goldFromPouchToMainButton = new DynamicButton(
                 this.x + 87, this.y + 17, 8, 10, 8, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, 10000L);
+                    requestTransfertFromPouchToMain(10000L);
                 }
         )));
         buttons.add(addDrawableChild(silverFromPouchToMainButton = new DynamicButton(
                 this.x + 87, this.y + 28, 8, 10, 8, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, 100L);
+                    requestTransfertFromPouchToMain( 100L);
                 }
         )));
         buttons.add(addDrawableChild(bronzeFromPouchToMainButton = new DynamicButton(
                 this.x + 87, this.y + 39, 8, 10, 8, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, 1L);
+                    requestTransfertFromPouchToMain(1L);
                 }
         )));
         buttons.add(addDrawableChild(fullFromPouchToMainButton = new DynamicButton(
                 this.x + 87, this.y + 17, 8, 32, 24, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.empty(), handler.mainAccountId, Long.MAX_VALUE);
+                    requestTransfertFromPouchToMain(Long.MAX_VALUE);
                 }
         )));
         buttons.add(addDrawableChild(goldFromOtherToMainButton = new DynamicButton(
                 this.x + 161, this.y + 17, 8, 10, 0, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, -10000L);
+                    requestTransfertFromMainToOther(-10000L);
                 }
         )));
         buttons.add(addDrawableChild(silverFromOtherToMainButton = new DynamicButton(
                 this.x + 161, this.y + 28, 8, 10, 0, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, -100L);
+                    requestTransfertFromMainToOther(-100L);
                 }
         )));
         buttons.add(addDrawableChild(bronzeFromOtherToMainButton = new DynamicButton(
                 this.x + 161, this.y + 39, 8, 10, 0, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, -1L);
+                    requestTransfertFromMainToOther(-1L);
                 }
         )));
         buttons.add(addDrawableChild(fullFromOtherToMainButton = new DynamicButton(
                 this.x + 161, this.y + 17, 8, 32, 16, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, -Long.MAX_VALUE);
+                    requestTransfertFromMainToOther(-Long.MAX_VALUE);
                 }
         )));
         buttons.add(addDrawableChild(goldFromMainToOtherButton = new DynamicButton(
                 this.x + 178, this.y + 17, 8, 10, 8, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, 10000L);
+                    requestTransfertFromMainToOther(10000L);
                 }
         )));
         buttons.add(addDrawableChild(silverMainToOtherButton = new DynamicButton(
                 this.x + 178, this.y + 28, 8, 10, 8, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, 100L);
+                    requestTransfertFromMainToOther(100L);
                 }
         )));
         buttons.add(addDrawableChild(bronzeMainToOtherButton = new DynamicButton(
                 this.x + 178, this.y + 39, 8, 10, 8, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, 1L);
+                    requestTransfertFromMainToOther(1L);
                 }
         )));
         buttons.add(addDrawableChild(fullFromMainToOtherButton = new DynamicButton(
                 this.x + 178, this.y + 17, 8, 32, 24, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    requestTransfert(Optional.ofNullable(handler.mainAccountId), selectedAccountId, Long.MAX_VALUE);
+                    requestTransfertFromMainToOther(Long.MAX_VALUE);
                 }
         )));
         buttons.add(addDrawableChild(homeButton = new DynamicButton(
@@ -304,25 +326,29 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
                 }
         )));
         buttons.add(addDrawableChild(addAccountButton = new DynamicButton(
-                this.x + 135, this.y + 87, 9, 9, 176, 0,
+                this.x + 138, this.y + 112, 9, 9, 176, 0,
                 Text.literal("TEST"),
                 button ->  {
+                    setAccountCreationState();
                 }
         )));
         buttons.add(addDrawableChild(confirmAccountCreationButton = new DynamicButton(
-                this.x + 216, this.y + 120, 13, 11, 211, 0,
+                this.x + 184, this.y + 164, 13, 11, 211, 0,
                 Text.literal("TEST"),
                 button ->  {
-                    /*stateCoupleMap.put(LeftState.ACCOUNTS, RightState.INFO);
-                    RequestAccountCreationPayload requestPayload2 = new RequestAccountCreationPayload(handler.syncId, "TOTO");
-                    ClientPlayNetworking.send(requestPayload2);*/
+                    stateCoupleMap.put(LeftState.ACCOUNTS, RightState.INFO);
+                    RequestAccountCreationPayload requestPayload2 = new RequestAccountCreationPayload(handler.syncId, accountCreationNameTextField.getText());
+                    ClientPlayNetworking.send(requestPayload2);
+                    accountCreationNameTextField.setText("");
+                    removeFocus();
                 }
         )));
-        buttons.add(addDrawableChild(filterRightTypeButton = new DynamicButton(
+        buttons.add(addDrawableChild(filterRightTypeButton = new StateSwitchingButton<BankerUtils.RIGHT_TYPE>(
                 this.x + 5, this.y + 93, 14, 14, 185, 0,
-                Text.literal("TEST"),
-                button ->  {
-                }
+                button -> {
+                    handler.updateAccountsListRightFilter(((StateSwitchingButton<BankerUtils.RIGHT_TYPE>) button).getState());
+                },
+                ICONS_TEXTURE
         )));
         buttons.add(addDrawableChild(filterIconIdButton = new DynamicButton(
                 this.x + 21, this.y + 93, 14, 14, 185, 0,
@@ -337,6 +363,24 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
                     removeFocus();
                 }
         )));
+        buttons.add(addDrawableChild(sortTypeAccountInfoButton = new DynamicButton(
+                this.x + 136, this.y + 110, 14, 14, 185, 42,
+                Text.literal("TEST"),
+                button ->  {
+                }
+        )));
+        buttons.add(addDrawableChild(filterRightTypeAccountInfoButton = new DynamicButton(
+                this.x + 149, this.y + 110, 14, 14, 185, 42,
+                Text.literal("TEST"),
+                button ->  {
+                }
+        )));
+        addDrawableChild(accountCreationNameTextField = new PrettyTextField(    // TODO: Change TextField Aspect
+            textRenderer,
+            this.x + 136, this.y + 143, 109, 17,
+            Text.literal("TEST"),
+            Text.translatable("numismatic_utils.banker.create_account_placeholder")
+        ));
 
         leftButtons = new ArrayList<>();
         for (int i = 0; i < NB_LEFT_BUTTONS; i++) {
@@ -413,6 +457,13 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
             add(silverMainToOtherButton);
             add(bronzeMainToOtherButton);
         }};
+
+        filterRightTypeButton.addState(BankerUtils.RIGHT_TYPE.OWNER, 0, 0, 10, 10, 2, 3);
+        filterRightTypeButton.addState(BankerUtils.RIGHT_TYPE.CO_OWNER, 10, 0, 10, 10, 2, 3);
+        filterRightTypeButton.addState(BankerUtils.RIGHT_TYPE.BENEFICIARY, 20, 0, 10, 10, 2, 3);
+        filterRightTypeButton.addState(BankerUtils.RIGHT_TYPE.CONTRIBUTOR, 30, 0, 10, 10, 2, 3);
+        filterRightTypeButton.addState(BankerUtils.RIGHT_TYPE.READ_ONLY, 40, 0, 10, 10, 2, 3);
+        filterRightTypeButton.addNullState();
     }
 
     private void initDisplayContext() {
@@ -441,6 +492,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        updateFocus();
         requestData();
         updateTransferFactor();
         updateLeftButtons(false);
@@ -451,21 +503,24 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         drawBalances(context, mouseX, mouseY);
         drawAdditionalTexture(context);
         drawRelevantContext(context);
-        drawTitle(context);
+        drawLeftTitle(context);
         writeOnLeftButtons(context);
         drawFocusState(context);
     }
 
     private void drawBalances(DrawContext context, int mouseX, int mouseY) {
+        AccountData mainAccount = handler.getMainAccount();
+        AccountData focusedAccount = handler.getFocusedAccount();
+
         // Pouch balance: always displayed
         drawBalance(context, 5, mouseX, mouseY, Text.translatable("numismatic_utils.banker.pouch"), "numismatic_utils.tooltip.current_pouch_balance", playerBalance);
 
         // Personal account balance: always displayed
-        drawBalance(context, 96, mouseX, mouseY, Text.translatable("numismatic_utils.banker.main_account"), "numismatic_utils.tooltip.current_main_account_balance", handler.getMainAccountBalance());
+        drawBalance(context, 96, mouseX, mouseY, Text.translatable("numismatic_utils.banker.main_account"), "numismatic_utils.tooltip.current_main_account_balance", mainAccount.getBalance());
 
         // Shared account balance: only displayed if the player has selected a shared account
-        if (currentLeftState == LeftState.ACCOUNTS && selectedAccountId != null) {
-            drawBalance(context, 187, mouseX, mouseY, Text.literal(handler.accountsNames.getOrDefault(selectedAccountId, "")), "numismatic_utils.tooltip.current_shared_account_balance", handler.getAccountBalance(selectedAccountId));
+        if (currentLeftState == LeftState.ACCOUNTS && handler.hasFocusedAccount()) {
+            drawBalance(context, 187, mouseX, mouseY, Text.literal(focusedAccount.getName()), "numismatic_utils.tooltip.current_shared_account_balance", focusedAccount.getBalance());
         }
     }
 
@@ -513,42 +568,63 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private void drawAccountsRight(DrawContext context) {
-        if (selectedAccountId != null) {
+        AccountData focusedAccount = handler.getFocusedAccount();
+
+        // Draw lines
+        for (int i = 0; i < 7; i++) {
+            DrawTools.fillGradientHorizontal(context, this.x + 136, this.y + 124 + i * 18, this.x + 190, this.y + 125 + i * 18, 0xFFDAC6A9, 0xFF281B14);
+            context.fill(this.x + 190, this.y + 124 + i * 18, this.x + 191, this.y + 125 + i * 18, 0xFF281B14);
+            DrawTools.fillGradientHorizontal(context, this.x + 191, this.y + 124 + i * 18, this.x + 245, this.y + 125 + i * 18, 0xFF281B14, 0xFFDAC6A9);
+        }
+
+        if (handler.hasFocusedAccount()) {
+            // Draw header
             int iconId = 0;
             int padding = 0;
             if (iconId > 0) {
                 padding = 6;
                 //drawCustomIcon(context, this.x + 136 + ()/2, this.y + 110, handler.accountsRights.get(selectedAccountId));
             }
-            drawRightTypeIcon(context, this.x + 136 - padding + (109 - 10)/2, this.y + 113, handler.accountsRights.get(selectedAccountId));
-            Text accountName = Text.literal(handler.accountsNames.get(selectedAccountId));
-            context.drawText(this.textRenderer, accountName, this.x + 142 + (97 - textRenderer.getWidth(accountName))/2, this.y + 93, 0x17202A, false);
-            // Bonne version ARGB avec alpha complet
-            //context.fillGradient(this.x + 137, this.y + 117, this.x + 191, this.y + 118, 0, 0xFFDAC6A9, 0xFF281B14);
-            //context.fillGradient(this.x + 191, this.y + 117, this.x + 245, this.y + 118, 0, 0xFF281B14, 0xFFDAC6A9);
-            DrawTools.fillGradientHorizontal(context, this.x + 137, this.y + 124, this.x + 191, this.y + 125, 0xFFDAC6A9, 0xFF281B14);
-            DrawTools.fillGradientHorizontal(context, this.x + 191, this.y + 124, this.x + 245, this.y + 125, 0xFF281B14, 0xFFDAC6A9);
+            drawRightTitle(context, Text.literal(focusedAccount.getName()));
+            DrawTools.drawRightTypeIcon(context, this.x + 136 - padding + (109 - 10) / 2, this.y + 113, focusedAccount.getRight());
 
-            context.drawText(this.textRenderer, "Text fits fine here.", this.x + 138, this.y + 126, 0x17202A, false);
-            context.drawText(this.textRenderer, "Text fits fine here.", this.x + 138, this.y + 134, 0x17202A, false);
-            for (int i = 1; i < 7; i++) {
-                context.drawText(this.textRenderer, "Text fits fine here.", this.x + 138, this.y + 126 + i*18, 0x17202A, false);
-                context.drawText(this.textRenderer, "Text fits fine here.", this.x + 138, this.y + 134 + i*18, 0x17202A, false);
-                DrawTools.fillGradientHorizontal(context, this.x + 137, this.y + 124 + i*18, this.x + 191, this.y + 125 + i*18, 0xFFDAC6A9, 0xFF281B14);
-                DrawTools.fillGradientHorizontal(context, this.x + 191, this.y + 124 + i*18, this.x + 245, this.y + 125 + i*18, 0xFF281B14, 0xFFDAC6A9);
+            // Draw info
+            if (stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.INFO) {
+
+                for (int i = 0; i < focusedAccount.getNbParticipantsDisplayed(); i++) {
+                    ParticipantData participant = focusedAccount.getParticipantAtIndex(i);
+                    PlayerData playerData = participant.getPlayerData();
+                    DrawTools.fillGradientHorizontal(context, this.x + 137, this.y + 124 + i * 18, this.x + 191, this.y + 125 + i * 18, 0xFFDAC6A9, 0xFF281B14);
+                    DrawTools.fillGradientHorizontal(context, this.x + 191, this.y + 124 + i * 18, this.x + 245, this.y + 125 + i * 18, 0xFF281B14, 0xFFDAC6A9);
+                    DrawTools.drawRightTypeIcon(context, this.x + 138, this.y + 129 + i * 18, participant.getRight());
+                    context.drawText(this.textRenderer, playerData.getName(), this.x + 150, this.y + 126 + i * 18, 0x17202A, false);
+                    long relativeBalance = participant.getRelativeBalance();
+                    int color = relativeBalance >= 0 ? 0xFF3F48CC : 0xFF88001B;
+                    relativeBalance = max(relativeBalance, -relativeBalance);
+                    NumismaticUtils.CoinsTuple coins = NumismaticUtils.convertCostToCoins(relativeBalance);
+                    NumismaticDraw.renderMinimalistCoinWithTextAside(context, textRenderer, this.x + 146, this.y + 129 + i * 18, NumismaticOverhaulItems.GOLD_COIN, coins.goldCoins, color,false);
+                    NumismaticDraw.renderMinimalistCoinWithTextAside(context, textRenderer, this.x + 200, this.y + 129 + i * 18, NumismaticOverhaulItems.SILVER_COIN, coins.silverCoins, color,false);
+                    NumismaticDraw.renderMinimalistCoinWithTextAside(context, textRenderer, this.x + 220, this.y + 129 + i * 18, NumismaticOverhaulItems.BRONZE_COIN, coins.bronzeCoins, color,false);
+                    //context.drawText(this.textRenderer, Long.toString(handler.getAccountInfoRelativeBalanceAt(handler.getSelectedAccountId(), i)), this.x + 138, this.y + 134 + i * 18, color, false);
+                }
+            } else {
+                // TODO: Settings on the account like changing the icon, changing the name, inviting newplayers, changing players roles...
             }
-
-
-            //context.getMatrices().push();
-            //context.getMatrices().translate(0.0, 0.0, 200.0);
-            //context.drawHorizontalLine(137, 245, 117, 0xFFFFFFFF);
-            //context.fill(137, 115, 245, 119, 0xFFFFFFFF);
-            //context.getMatrices().pop();
+        } else {
+            if (stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.ACCOUNT_CREATION) {
+                // Account name text field
+                drawRightTitle(context, Text.translatable("numismatic_utils.banker.account_creation"));
+                Text textFieldInfo = Text.translatable("numismatic_utils.banker.account_name_text_field");
+                context.drawText(this.textRenderer, textFieldInfo, this.x + 136 + (109 - textRenderer.getWidth(textFieldInfo)) / 2, this.y + 129, 0x17202A, false);
+            }
         }
     }
 
     private void drawPlayersRight(DrawContext context) {
-        //drawLeftButtons(context);
+        if (selectedPlayerId != null) {
+            Text playerName = Text.literal(handler.getPlayerName(selectedPlayerId));
+            context.drawText(this.textRenderer, playerName, this.x + 142 + (97 - textRenderer.getWidth(playerName))/2, this.y + 93, 0x17202A, false);
+        }
     }
 
     private void writeOnLeftButtons(DrawContext context) {
@@ -574,7 +650,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         }
     }
 
-    private void drawTitle(DrawContext context) {
+    private void drawLeftTitle(DrawContext context) {
         Text title = switch(currentLeftState) {
             case HOME -> Text.translatable("numismatic_utils.banker.home");
             case ACCOUNTS -> Text.translatable("numismatic_utils.banker.accounts");
@@ -583,11 +659,19 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         context.drawText(this.textRenderer, title, this.x + 43 + (83-textRenderer.getWidth(title))/2, this.y + 93, 0x563113, false);
     }
 
+    private void drawRightTitle(DrawContext context, Text title) {
+        drawRightTitle(context, title, 0x17202A);
+    }
+
+    private void drawRightTitle(DrawContext context, Text title, int color) {
+        context.drawText(this.textRenderer, title, this.x + 142 + (97 - textRenderer.getWidth(title)) / 2, this.y + 93, color, false);
+    }
+
     private int computeNbLeftElements() {
         return switch (currentLeftState) {
             case HOME -> 0;
-            case ACCOUNTS -> handler.getOrderedAccountsListSize();
-            case PLAYERS -> 0;
+            case ACCOUNTS -> handler.getNbAccountsDisplayed();
+            case PLAYERS -> handler.getOrderedPlayersListSize();
         };
     }
 
@@ -602,31 +686,27 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
                 break;
 
             case PLAYERS:
-                // do something
+                writeOnPlayersLeftButtons(context, i);
                 break;
         }
     }
 
     private void writeOnAccountsLeftButtons(DrawContext context, int i) {
-        UUID accountId = handler.getAccountAt(i);
-        drawRightTypeIcon(context, this.x + 8, this.y + 113 + i*14, handler.accountsRights.get(accountId));
-        context.drawText(this.textRenderer, handler.accountsNames.get(accountId), this.x + 19, this.y + 114 + i*14, 0x17202A, false);
+        AccountData account = handler.getAccountAtIndex(i);
+        DrawTools.drawRightTypeIcon(context, this.x + 8, this.y + 113 + i*14, account.getRight());
+        context.drawText(this.textRenderer, account.getName(), this.x + 19, this.y + 114 + i*14, 0x17202A, false);
     }
 
-    private void drawRightTypeIcon(DrawContext context, int x, int y, BankerUtils.RIGHT_TYPE rightType) {
-        int u = 0;
-        switch (rightType) {
-            case BankerUtils.RIGHT_TYPE.READ_ONLY -> u = 0;
-            case BankerUtils.RIGHT_TYPE.CONTRIBUTOR -> u = 10;
-            case BankerUtils.RIGHT_TYPE.BENEFICIARY -> u = 20;
-            case BankerUtils.RIGHT_TYPE.OWNER -> u = 30;
-        }
-        context.drawTexture(ICONS_TEXTURE, x, y, u, 0, 10, 8);
+    private void writeOnPlayersLeftButtons(DrawContext context, int i) {
+        UUID playerId = handler.getPlayerAt(i);
+        //drawRightTypeIcon(context, this.x + 8, this.y + 113 + i*14, handler.playersRights.get(playerId));
+        // TODO: Draw ban or friend (i.e., whitelist) icon
+        context.drawText(this.textRenderer, handler.getPlayerName(playerId), this.x + 19, this.y + 114 + i*14, 0x17202A, false);
     }
 
-    private void drawAccountInfo(DrawContext context) {
-        context.drawText(this.textRenderer, handler.accountsNames.get(selectedAccountId), this.x + 148, this.y + 88, 0x17202A, true);
-    }
+    /*private void drawAccountInfo(DrawContext context) {
+        context.drawText(this.textRenderer, handler.accountsNames.get(handler.getFocusedAccount()), this.x + 148, this.y + 88, 0x17202A, true);
+    }*/
 
     private void drawAccountCreationForm(DrawContext context) {
 
@@ -637,7 +717,9 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private void updateMainToPouchButtons() {
-        if (handler.getMainAccountBalance() > 0) {
+        AccountData mainAccount = handler.getMainAccount();
+
+        if (mainAccount.getBalance() > 0) {
             fromMainToPouchButtons.forEach(button -> {button.active = true;});
         } else {
             fromMainToPouchButtons.forEach(button -> {button.active = false;});
@@ -652,8 +734,8 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         }
     }
 
-    private void updateOtherToMainButtons() {
-        if (handler.getAccountBalance(selectedAccountId) > 0) {
+    /*private void updateOtherToMainButtons() {
+        if (handler.getAccountBalance(handler.getFocusedAccount()) > 0) {
             fromOtherToMainButtons.forEach(button -> {button.active = true;});
         } else {
             fromOtherToMainButtons.forEach(button -> {button.active = false;});
@@ -666,7 +748,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         } else {
             fromMainToOtherButtons.forEach(button -> {button.active = false;});
         }
-    }
+    }*/
 
     private void updateKeysPressed() {
         if (HandledScreen.hasAltDown() != altKeyPressed) {
@@ -716,15 +798,51 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         if (shiftKeyPressed) {
             bronzeAndSilverTransfertButtons.forEach(button -> {button.active = false;});
         } else {
-            bronzeAndSilverTransfertButtons.forEach(button -> {button.active = true;});
+            AccountData mainAccount = handler.getMainAccount();
+            AccountData focusedAccount = handler.getFocusedAccount();
+            if (playerBalance > 0) {
+                bronzeFromPouchToMainButton.active = true;
+                silverFromPouchToMainButton.active = true;
+            } else {
+                bronzeFromPouchToMainButton.active = false;
+                silverFromPouchToMainButton.active = false;
+            }
+
+            if (mainAccount.getBalance() > 0) {
+                bronzeFromMainToPouchButton.active = true;
+                silverFromMainToPouchButton.active = true;
+            } else {
+                bronzeFromMainToPouchButton.active = false;
+                silverFromMainToPouchButton.active = false;
+            }
+
+            if (shouldDisplayOtherToMainTransfertButtons()) {
+                if (focusedAccount.getBalance() > 0) {
+                    bronzeFromOtherToMainButton.active = true;
+                    silverFromOtherToMainButton.active = true;
+                } else {
+                    bronzeFromOtherToMainButton.active = false;
+                    silverFromOtherToMainButton.active = false;
+                }
+            }
+
+            if (shouldDisplayMainToOtherTransfertButtons()) {
+                if (focusedAccount.getBalance() > 0) {
+                    bronzeMainToOtherButton.active = true;
+                    silverMainToOtherButton.active = true;
+                } else {
+                    bronzeMainToOtherButton.active = false;
+                    silverMainToOtherButton.active = false;
+                }
+            }
         }
     }
 
     private void updateLeftButtons(boolean forced) {
         boolean shouldUpdate = forced || switch(currentLeftState) {
             case LeftState.HOME -> false;
-            case LeftState.ACCOUNTS -> handler.accountsListUpdated();
-            case LeftState.PLAYERS -> false;
+            case LeftState.ACCOUNTS -> handler.wasAccountsListUpdated();
+            case LeftState.PLAYERS -> handler.isPlayersListUpdated();
         };
         if (shouldUpdate) {
             updateLeftButtonsVisibility();
@@ -747,16 +865,17 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     private void updateLeftButtonsActivity() {
         UUID selectedId = switch (currentLeftState) {
             case LeftState.HOME -> null;
-            case LeftState.ACCOUNTS -> selectedAccountId;
-            case LeftState.PLAYERS -> null;
+            case LeftState.ACCOUNTS -> handler.hasFocusedAccount() ? handler.getFocusedAccount().getId() : null;
+            case LeftState.PLAYERS -> selectedPlayerId;
         };
 
+        System.out.println("selectedId: " + selectedId);
         for (int i = 0; i < NB_LEFT_BUTTONS; i++) {
-            System.out.println("I: " + i);
             DynamicButton leftButton = leftButtons.get(i);
             if (!leftButton.visible)
                 break;
 
+            System.out.println("idAtLeftButton(" + i + "): " + getIdAtLeftButton(i));
             leftButton.active = !Objects.equals(getIdAtLeftButton(i), selectedId);
         }
     }
@@ -764,15 +883,18 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     private UUID getIdAtLeftButton(int i) {
         return switch (currentLeftState) {
             case LeftState.HOME -> null;
-            case LeftState.ACCOUNTS -> handler.getAccountAt(i);
-            case LeftState.PLAYERS -> null;
+            case LeftState.ACCOUNTS -> handler.getAccountAtIndex(i).getId();
+            case LeftState.PLAYERS -> handler.getPlayerAt(i);
         };
     }
 
     private boolean shouldDisplayOtherToMainTransfertButtons() {
-        BankerUtils.RIGHT_TYPE rightType = handler.accountsRights.getOrDefault(selectedAccountId, BankerUtils.RIGHT_TYPE.READ_ONLY);
+        if (!handler.hasFocusedAccount())
+            return false;
+
+        BankerUtils.RIGHT_TYPE rightType = handler.getFocusedAccount().getRight();
         return currentLeftState == LeftState.ACCOUNTS
-                && selectedAccountId != null
+                && handler.hasFocusedAccount()
                 && (
                         rightType == BankerUtils.RIGHT_TYPE.BENEFICIARY
                     ||  rightType == BankerUtils.RIGHT_TYPE.OWNER
@@ -780,9 +902,12 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private boolean shouldDisplayMainToOtherTransfertButtons() {
-        BankerUtils.RIGHT_TYPE rightType = handler.accountsRights.getOrDefault(selectedAccountId, BankerUtils.RIGHT_TYPE.READ_ONLY);
+        if (!handler.hasFocusedAccount())
+            return false;
+
+        BankerUtils.RIGHT_TYPE rightType = handler.getFocusedAccount().getRight();
         return currentLeftState == LeftState.ACCOUNTS
-                && selectedAccountId != null
+                && handler.hasFocusedAccount()
                 && (
                         rightType == BankerUtils.RIGHT_TYPE.CONTRIBUTOR
                     ||  rightType == BankerUtils.RIGHT_TYPE.BENEFICIARY
@@ -791,7 +916,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private boolean shouldDisplayOtherAccountBalance() {
-        return currentLeftState == LeftState.ACCOUNTS && selectedAccountId != null;
+        return currentLeftState == LeftState.ACCOUNTS && handler.hasFocusedAccount();
     }
 
     private void updateTransferFactor() {
@@ -810,6 +935,20 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         }
     }
 
+
+    private void requestTransfertFromPouchToMain(long value) {
+        requestTransfert(Optional.empty(), handler.getMainAccount().getId(), value);
+    }
+
+    private void requestTransfertFromMainToOther(long value) {
+        if (!handler.hasFocusedAccount())
+            return;
+
+        AccountData focusedAccount = handler.getFocusedAccount();
+        focusedAccount.updateRelativeBalance_fromClient(value);
+        requestTransfert(Optional.of(handler.getMainAccount().getId()), handler.getFocusedAccount().getId(), value);
+    }
+
     private void requestTransfert(Optional<UUID> origin, UUID destination, long value) {
         if (destination == null)
             return;
@@ -820,62 +959,110 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private void requestData() {
+        AccountData mainAccount = handler.getMainAccount();
+        AccountData focusedAccount = handler.getFocusedAccount();
+
         // Player's pouch balance (always displayed)
         long newPlayerBalance = ModComponents.CURRENCY.get(client.player).getValue();
         playerBalanceUpdated = playerBalance != newPlayerBalance;
         playerBalance = newPlayerBalance;
 
         // Player's main account balance (always displayed)
-        if (handler.shouldUpdateAccountBalance(handler.mainAccountId)) {
-            System.out.println("Updating account balance for main account " + handler.mainAccountId);
-            RequestAccountBalancePayload requestPayload = new RequestAccountBalancePayload(handler.syncId, handler.mainAccountId);
+        if (mainAccount.shouldUpdateBalance()) {
+            System.out.println("Updating account balance for main account " + mainAccount.getId());
+            RequestAccountBalancePayload requestPayload = new RequestAccountBalancePayload(handler.syncId, mainAccount.getId());
             ClientPlayNetworking.send(requestPayload);
         }
 
         // Player's main account balance (always displayed)
-        if (shouldDisplayOtherAccountBalance() && handler.shouldUpdateAccountBalance(selectedAccountId)) {
-            System.out.println("Updating account balance for other account " + selectedAccountId);
-            RequestAccountBalancePayload requestPayload = new RequestAccountBalancePayload(handler.syncId, selectedAccountId);
+        if (shouldDisplayOtherAccountBalance() && focusedAccount.shouldUpdateBalance()) {
+            System.out.println("Updating account balance for other account " + focusedAccount.getId());
+            RequestAccountBalancePayload requestPayload = new RequestAccountBalancePayload(handler.syncId, focusedAccount.getId());
             ClientPlayNetworking.send(requestPayload);
         }
 
-        // Other account balance (displayed when relevant)
-        if (handler.shouldUpdateAccountsList()) {
+        // Other account balance (displayed only on accounts tab)
+        if (currentLeftState == LeftState.ACCOUNTS && handler.shouldUpdateAccountsList()) {
             System.out.println("Updating accounts list");
             RequestAccountsListPayload requestPayload = new RequestAccountsListPayload(handler.syncId, filterRightType, filterIconId);
             ClientPlayNetworking.send(requestPayload);
         }
+
+        // Player's accounts list (displayed only on players tab)
+        if (currentLeftState == LeftState.PLAYERS && handler.shouldUpdatePlayersList()) {
+            System.out.println("Updating players list");
+            RequestPlayersListPayload requestPayload = new RequestPlayersListPayload(handler.syncId);
+            ClientPlayNetworking.send(requestPayload);
+        }
+
+        // Account info list (displayed only when focused on an account)
+        if (currentLeftState == LeftState.ACCOUNTS && stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.INFO && handler.hasFocusedAccount() && focusedAccount.shouldUpdateInfo()) {
+            System.out.println("Updating account info for " + focusedAccount.getId());
+            RequestAccountInfoPayload requestPayload = new RequestAccountInfoPayload(handler.syncId, focusedAccount.getId());
+            ClientPlayNetworking.send(requestPayload);
+        }
+    }
+
+    private void updateFocus() {
+        if (currentLeftState == LeftState.ACCOUNTS && !stateCoupleMap.get(LeftState.ACCOUNTS).equals(RightState.ACCOUNT_CREATION)) {
+            if (handler.wasFocusedAccountUpdated()) {
+                if (handler.hasFocusedAccount()) {
+                    setAccountsState();
+                } else {
+                    removeFocus();
+                }
+            }
+        }
     }
 
     private void leftButtonClicked(int i) {
-        closeFocusButton.visible = true;
         switch (currentLeftState){
             case LeftState.HOME:
-                setEventFocused(i);
+                break;
 
             case LeftState.ACCOUNTS:
-                setAccountFocused(i);
+                handler.selectAccountAtIndex(i);
                 break;
 
             case LeftState.PLAYERS:
-                setPlayerFocused(i);
+                selectedPlayerId = handler.getPlayerAt(i);
+                break;
+        }
+        setFocusState();
+    }
+
+    private void setFocusState() {
+        updateLeftButtonsActivity();
+        closeFocusButton.visible = true;
+
+        switch (currentLeftState){
+            case HOME:
+                setEventFocusState();
+                break;
+
+            case ACCOUNTS:
+                setAccountFocusState();
+                break;
+
+            case PLAYERS:
+                setPlayerFocusState();
                 break;
         }
     }
 
-    private void setEventFocused(int i) {
-
+    private void setEventFocusState() {
     }
 
-    private void setAccountFocused(int i) {
-        selectedAccountId = handler.getAccountAt(i);
-        updateLeftButtonsActivity();
+    private void setAccountFocusState() {
         updateMainOtherTransfertButtonsVisibility();
-        updateTransfertButtonsActivity();
+        updateTransfertButtonsActivity(true);
         addAccountButton.visible = false;
+        sortTypeAccountInfoButton.visible = stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.INFO;
+        filterRightTypeAccountInfoButton.visible = stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.INFO;
+        accountCreationNameTextField.visible = false;
     }
 
-    private void setPlayerFocused(int i) {
+    private void setPlayerFocusState() {
 
     }
 
@@ -896,7 +1083,13 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private void updateTransfertButtonsActivity() {
-        if (playerBalanceUpdated) {
+        updateTransfertButtonsActivity(false);
+    }
+    private void updateTransfertButtonsActivity(boolean forced) {
+        AccountData mainAccount = handler.getMainAccount();
+        AccountData focusedAccount = handler.getFocusedAccount();
+
+        if (forced || playerBalanceUpdated) {
             if (playerBalance > 0) {
                 goldFromPouchToMainButton.active = true;
                 silverFromPouchToMainButton.active = !shiftKeyPressed;
@@ -907,8 +1100,9 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
             }
         }
 
-        if (handler.isMainAccountBalanceUpdated()) {
-            boolean mainIsNotEmpty = handler.getMainAccountBalance() > 0;
+        if (forced || mainAccount.wasBalanceUpdated()) {
+            System.out.println("Updating buttons from main account to pouch");
+            boolean mainIsNotEmpty = mainAccount.getBalance() > 0;
             if (mainIsNotEmpty) {
                 goldFromMainToPouchButton.active = true;
                 silverFromMainToPouchButton.active = !shiftKeyPressed;
@@ -929,8 +1123,8 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
             }
         }
 
-        if (shouldDisplayOtherToMainTransfertButtons() && handler.isAccountBalanceUpdated(selectedAccountId)) {
-            if (handler.getAccountBalance(selectedAccountId) > 0) {
+        if (shouldDisplayOtherToMainTransfertButtons() && (forced || focusedAccount.wasBalanceUpdated())) {
+            if (focusedAccount.getBalance() > 0) {
                 goldFromOtherToMainButton.active = true;
                 silverFromOtherToMainButton.active = !shiftKeyPressed;
                 bronzeFromOtherToMainButton.active = !shiftKeyPressed;
@@ -946,12 +1140,17 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         // Update context first
         currentLeftState = LeftState.HOME;
 
+        // Text fields visibility
+        accountCreationNameTextField.visible = false;
+
         // Buttons visibility
         displayInfoButton.visible = true;
         displayTransfertButton.visible = false;
         addAccountButton.visible = false;
         confirmAccountCreationButton.visible = false;
         closeFocusButton.visible = false; // TODO: Switch to false if no event is selected
+        sortTypeAccountInfoButton.visible = false;
+        filterRightTypeAccountInfoButton.visible = false;
 
         // Transfert buttons visibility
         updateMainOtherTransfertButtonsVisibility();
@@ -989,7 +1188,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         // Buttons visibility
         displayInfoButton.visible = true;
         displayTransfertButton.visible = false;
-        closeFocusButton.visible = (selectedAccountId != null);
+        closeFocusButton.visible = (handler.hasFocusedAccount());
 
         // Buttons activation and visibility
         displayAccountsButton.active = false;
@@ -1000,15 +1199,22 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
             displaySettingsButton.active = true;
             addAccountButton.visible = false;
             confirmAccountCreationButton.visible = false;
+            sortTypeAccountInfoButton.visible = handler.hasFocusedAccount();
+            filterRightTypeAccountInfoButton.visible = handler.hasFocusedAccount();
+            accountCreationNameTextField.visible = false;
         } else {
             displayInfoButton.active = true;
             displaySettingsButton.active = false;
+            sortTypeAccountInfoButton.visible = false;
+            filterRightTypeAccountInfoButton.visible = false;
             if (stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.ACCOUNT_CREATION) {
                 addAccountButton.visible = false;
                 confirmAccountCreationButton.visible = true;
+                accountCreationNameTextField.visible = true;
             } else {
-                addAccountButton.visible = (selectedAccountId == null);
+                addAccountButton.visible = (!handler.hasFocusedAccount());
                 confirmAccountCreationButton.visible = false;
+                accountCreationNameTextField.visible = false;
             }
         }
 
@@ -1021,11 +1227,16 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         // Update context first
         currentLeftState = LeftState.PLAYERS;
 
+        // Text fields visibility
+        accountCreationNameTextField.visible = false;
+
         // Buttons visibility
         addAccountButton.visible = false;
         displayInfoButton.visible = false;
         displayTransfertButton.visible = true;
-        closeFocusButton.visible = false; // TODO: Switch to false if no player is selected
+        closeFocusButton.visible = selectedPlayerId != null;
+        sortTypeAccountInfoButton.visible = false;
+        filterRightTypeAccountInfoButton.visible = false;
 
         // Buttons activation
         displayPlayersButton.active = false;
@@ -1079,7 +1290,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
 
             case ACCOUNTS:
                 stateCoupleMap.put(LeftState.ACCOUNTS, RightState.SETTINGS);
-                addAccountButton.visible = (selectedAccountId == null);
+                addAccountButton.visible = (!handler.hasFocusedAccount());
                 break;
 
             case PLAYERS:
@@ -1093,6 +1304,14 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
         displayTransfertButton.active = true;
     }
 
+    private void setAccountCreationState() {
+        stateCoupleMap.put(LeftState.ACCOUNTS, RightState.ACCOUNT_CREATION);
+        accountCreationNameTextField.visible = true;
+        addAccountButton.active = false;
+        closeFocusButton.visible = true;
+        confirmAccountCreationButton.visible = true;
+    }
+
     private void removeFocus() {
         switch (currentLeftState)  {
             case HOME -> removeEventFocus();
@@ -1100,6 +1319,7 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
             case PLAYERS -> removePlayerFocus();
         }
         updateLeftButtons(true);
+        closeFocusButton.visible = false;
     }
 
     private void removeEventFocus() {
@@ -1107,13 +1327,21 @@ public class BankerScreen extends HandledScreen<BankerScreenHandler> {
     }
 
     private void removeAccountFocus() {
-        selectedAccountId = null;
-        closeFocusButton.visible = false;
+        if (stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.ACCOUNT_CREATION) {
+            stateCoupleMap.put(LeftState.ACCOUNTS, RightState.SETTINGS);
+        }
+        addAccountButton.active = true;
+        handler.resetFocusedAccount();
         fromOtherToMainButtons.forEach(button -> button.visible = false);
         fromMainToOtherButtons.forEach(button -> button.visible = false);
+        sortTypeAccountInfoButton.visible = false;
+        filterRightTypeAccountInfoButton.visible = false;
+        addAccountButton.visible = stateCoupleMap.get(LeftState.ACCOUNTS) == RightState.SETTINGS;
+        accountCreationNameTextField.visible = false;
+        confirmAccountCreationButton.visible = false;
     }
 
     private void removePlayerFocus() {
-
+        selectedPlayerId = null;
     }
 }

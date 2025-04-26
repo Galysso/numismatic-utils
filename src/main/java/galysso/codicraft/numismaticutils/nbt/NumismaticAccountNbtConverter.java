@@ -3,6 +3,8 @@ package galysso.codicraft.numismaticutils.nbt;
 import galysso.codicraft.numismaticutils.utils.BankerUtils;
 import galysso.codicraft.numismaticutils.banking.NumismaticAccount;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +20,7 @@ public class NumismaticAccountNbtConverter {
         accountNbt.put("participants", serializeParticipants(account.getParticipants()));
         accountNbt.put("pendingRequests", serializePendingRequests(account.getPendingRequests()));
         accountNbt.putLong("balance", account.getBalance());
+        accountNbt.put("relativeBalances", serializeRelativeBalances(account.getPlayersRelativeBalance()));
         return accountNbt;
     }
 
@@ -48,6 +51,18 @@ public class NumismaticAccountNbtConverter {
         return pendingRequestsNbt;
     }
 
+    private static NbtList serializeRelativeBalances(Map<UUID, Long> relativeBalances) {
+        NbtList relativeBalancesList = new NbtList();
+        for (Map.Entry<UUID, Long> entry : relativeBalances.entrySet()) {
+            NbtCompound relativeBalanceNbt = new NbtCompound();
+            relativeBalanceNbt.putUuid("uuid", entry.getKey());
+            relativeBalanceNbt.putLong("value", entry.getValue());
+            relativeBalancesList.add(relativeBalanceNbt);
+        }
+        System.out.println("SERIALIZE: relativeBalancesNbt: " + relativeBalancesList);
+        return relativeBalancesList;
+    }
+
     public static NumismaticAccount deserializeAccount(NbtCompound accountNbt) {
         UUID id = accountNbt.getUuid("id");
         String name = accountNbt.getString("name");
@@ -56,7 +71,8 @@ public class NumismaticAccountNbtConverter {
         Map<UUID, BankerUtils.RIGHT_TYPE> participants = deserializeParticipants(accountNbt.getCompound("participants"));
         Map<UUID, Boolean> pendingRequests = deserializePendingRequests(accountNbt.getCompound("pendingRequests"));
         long balance = accountNbt.getLong("balance");
-        return new NumismaticAccount(id, name, ownerId, participants, pendingRequests, balance);
+        Map<UUID, Long> relativeBalances = deserializeRelativeBalances(accountNbt.getList("relativeBalances", NbtCompound.COMPOUND_TYPE));
+        return new NumismaticAccount(id, name, ownerId, participants, pendingRequests, balance, relativeBalances);
     }
 
     private static Map<UUID, Integer> deserializeIconsId(NbtCompound iconsIdNbt) {
@@ -98,5 +114,19 @@ public class NumismaticAccountNbtConverter {
             }
         }
         return pendingRequests;
+    }
+
+    private static Map<UUID, Long> deserializeRelativeBalances(NbtList relativeBalancesNbt) {
+        Map<UUID, Long> relativeBalances = new HashMap<>();
+        System.out.println("DESERIALIZE (before): relativeBalancesNbt: " + relativeBalancesNbt);
+        for (int i = 0; i < relativeBalancesNbt.size(); i++) {
+            NbtCompound relativeBalanceNbt = relativeBalancesNbt.getCompound(i);
+            UUID uuid = relativeBalanceNbt.getUuid("uuid");
+            long value = relativeBalanceNbt.getLong("value");
+            relativeBalances.put(uuid, value);
+        }
+
+        System.out.println("DESERIALIZE (after): relativeBalancesNbt: " + relativeBalances);
+        return relativeBalances;
     }
 }

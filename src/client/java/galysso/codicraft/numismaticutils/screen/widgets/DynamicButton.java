@@ -1,4 +1,4 @@
-package galysso.codicraft.numismaticutils.screen.buttons;
+package galysso.codicraft.numismaticutils.screen.widgets;
 
 import galysso.codicraft.numismaticutils.screen.BankerScreen;
 import net.minecraft.client.gui.DrawContext;
